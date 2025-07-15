@@ -1,43 +1,26 @@
 const { spawn } = require('child_process');
-const http = require('http');
 
 const port = process.env.PORT || 10000;
 
-// Create a simple HTTP server to keep Render happy
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('BrightData MCP Server is running\n');
-});
-
-server.listen(port, () => {
-  console.log(`HTTP server listening on port ${port}`);
-});
-
-// Start the MCP server in stdio mode
-const mcp = spawn('npx', ['@brightdata/mcp'], {
+// Start supergateway to expose MCP over HTTP
+const gateway = spawn('npx', [
+  '-y',
+  'supergateway',
+  '--stdio', 'npx -y @brightdata/mcp',
+  '--port', port.toString(),
+  '--baseUrl', `https://brightdata-mcp-server-wh2k.onrender.com`,
+  '--ssePath', '/sse',
+  '--messagePath', '/message'
+], {
   env: { 
     ...process.env,
     NODE_ENV: 'production'
   },
-  stdio: ['pipe', 'pipe', 'pipe']
-});
-
-// Handle MCP output
-mcp.stdout.on('data', (data) => {
-  console.log(`MCP: ${data}`);
-});
-
-mcp.stderr.on('data', (data) => {
-  console.error(`MCP Error: ${data}`);
-});
-
-mcp.on('close', (code) => {
-  console.log(`MCP process exited with code ${code}`);
+  stdio: 'inherit'
 });
 
 // Keep the process alive
 process.on('SIGTERM', () => {
-  mcp.kill();
-  server.close();
+  gateway.kill();
   process.exit(0);
 });
